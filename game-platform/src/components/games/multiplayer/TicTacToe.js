@@ -39,17 +39,28 @@ function TicTacToe() {
     return null;
   }, []);
 
+  // Helper to convert board for Firebase (null -> empty string)
+  const boardToFirebase = useCallback((board) => board.map(cell => cell === null ? '' : cell), []);
+  
+  // Helper to convert board from Firebase (empty string -> null)
+  const boardFromFirebase = useCallback((board) => {
+    if (!board) return Array(9).fill(null);
+    // Handle if Firebase returns an object instead of array
+    const boardArray = Array.isArray(board) ? board : Object.values(board);
+    return boardArray.map(cell => cell === '' ? null : cell);
+  }, []);
+
   // Subscribe to room updates for online play
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
       const unsubscribe = subscribeToRoom('tictactoe', roomId, (roomData) => {
         if (roomData.gameState) {
-          // Ensure board is a valid array
+          // Ensure board is a valid array and convert from Firebase format
           const boardData = roomData.gameState.board;
-          const validBoard = Array.isArray(boardData) && boardData.length === 9 
-            ? boardData 
-            : Array(9).fill(null);
-          setBoard(validBoard);
+          const validBoard = boardFromFirebase(boardData);
+          // Ensure we have exactly 9 cells
+          while (validBoard.length < 9) validBoard.push(null);
+          setBoard(validBoard.slice(0, 9));
           setIsXNext(roomData.currentTurn === 'host');
         }
         
@@ -72,7 +83,7 @@ function TicTacToe() {
         if (unsubscribe) unsubscribe();
       };
     }
-  }, [gameMode, roomId, subscribeToRoom, isWaiting]);
+  }, [gameMode, roomId, subscribeToRoom, isWaiting, boardFromFirebase]);
 
   useEffect(() => {
     const winner = calculateWinner(board);
@@ -109,7 +120,7 @@ function TicTacToe() {
 
     if (gameMode === 'online' && roomId) {
       const nextTurn = isXNext ? 'guest' : 'host';
-      await updateGameState('tictactoe', roomId, { board: newBoard }, nextTurn);
+      await updateGameState('tictactoe', roomId, { board: boardToFirebase(newBoard) }, nextTurn);
     }
   };
 
@@ -119,7 +130,7 @@ function TicTacToe() {
     setIsXNext(true);
     
     if (gameMode === 'online' && roomId) {
-      await updateGameState('tictactoe', roomId, { board: newBoard }, 'host');
+      await updateGameState('tictactoe', roomId, { board: boardToFirebase(newBoard) }, 'host');
     }
   };
 

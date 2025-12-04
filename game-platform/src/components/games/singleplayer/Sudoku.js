@@ -41,19 +41,28 @@ function Sudoku() {
     return true;
   }, []);
 
+  // Helper function to shuffle an array (Fisher-Yates algorithm)
+  const shuffleArray = useCallback((array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, []);
+
   const solveSudoku = useCallback((grid) => {
     const newGrid = grid.map(row => [...row]);
+    // Pre-shuffle numbers once for initial randomization
+    const baseNums = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     
     const solve = () => {
       for (let row = 0; row < GRID_SIZE; row++) {
         for (let col = 0; col < GRID_SIZE; col++) {
           if (newGrid[row][col] === 0) {
-            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-            // Shuffle for randomness
-            for (let i = nums.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [nums[i], nums[j]] = [nums[j], nums[i]];
-            }
+            // Use base shuffled array with rotation based on position for variety
+            const offset = (row + col) % 9;
+            const nums = [...baseNums.slice(offset), ...baseNums.slice(0, offset)];
             
             for (const num of nums) {
               if (isValidPlacement(newGrid, row, col, num)) {
@@ -71,7 +80,7 @@ function Sudoku() {
     
     solve();
     return newGrid;
-  }, [isValidPlacement]);
+  }, [isValidPlacement, shuffleArray]);
 
   const generatePuzzle = useCallback((difficultyLevel) => {
     // Create a solved grid

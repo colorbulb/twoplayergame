@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './DevTools.css';
+
+const MAX_CONSOLE_LOGS = 100;
 
 function DevTools() {
   const [isOpen, setIsOpen] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState([]);
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    // Capture console logs
+    // Prevent multiple initializations
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    // Store original console methods
     const originalLog = console.log;
     const originalError = console.error;
     const originalWarn = console.warn;
@@ -26,8 +33,7 @@ function DevTools() {
 
       setConsoleLogs(prev => {
         const newLogs = [...prev, { type, message, timestamp: new Date().toLocaleTimeString() }];
-        // Keep only last 100 logs
-        return newLogs.slice(-100);
+        return newLogs.slice(-MAX_CONSOLE_LOGS);
       });
     };
 
@@ -56,6 +62,7 @@ function DevTools() {
       console.error = originalError;
       console.warn = originalWarn;
       console.info = originalInfo;
+      isInitializedRef.current = false;
     };
   }, []);
 

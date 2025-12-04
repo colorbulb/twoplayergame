@@ -236,13 +236,16 @@ function Game2048() {
   // Prevent body scrolling when game is active
   useEffect(() => {
     if (gameStarted && !gameOver) {
+      const originalOverflow = document.body.style.overflow;
+      const originalTouchAction = document.body.style.touchAction;
       document.body.style.overflow = 'hidden';
       document.body.style.touchAction = 'none';
+      
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.touchAction = originalTouchAction;
+      };
     }
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    };
   }, [gameStarted, gameOver]);
 
   const getTileClass = (value) => {

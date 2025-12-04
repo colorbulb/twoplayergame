@@ -36,6 +36,13 @@ const multiplayerGames = [
     icon: '📝🔗',
     description: 'Chain words together with friends',
     path: '/multiplayer/wordchain'
+  },
+  {
+    id: 'checkers',
+    name: 'Checkers',
+    icon: '🔴⚫',
+    description: 'Classic board game with jumping captures',
+    path: '/multiplayer/checkers'
   }
 ];
 
@@ -74,6 +81,13 @@ const singlePlayerGames = [
     icon: '⌨️⚡',
     description: 'Test your typing speed',
     path: '/singleplayer/typingtest'
+  },
+  {
+    id: 'sudoku',
+    name: 'Sudoku',
+    icon: '🔢📝',
+    description: 'Fill the grid with numbers 1-9',
+    path: '/singleplayer/sudoku'
   }
 ];
 

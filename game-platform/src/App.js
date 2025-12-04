@@ -4,6 +4,7 @@ import './App.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { GameProvider } from './contexts/GameContext';
 import Home from './pages/Home';
+import DevTools from './components/common/DevTools';
 import { MultiplayerRoutes, SinglePlayerRoutes, AdminRoutes } from './routes';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
               <Route path="/minesweeper" element={<Navigate to="/singleplayer/minesweeper" replace />} />
               <Route path="/typingtest" element={<Navigate to="/singleplayer/typingtest" replace />} />
             </Routes>
+            <DevTools />
           </div>
         </Router>
       </GameProvider>

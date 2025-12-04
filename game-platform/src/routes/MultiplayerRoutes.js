@@ -5,6 +5,7 @@ import ConnectFour from '../components/games/multiplayer/ConnectFour';
 import RockPaperScissors from '../components/games/multiplayer/RockPaperScissors';
 import Battleship from '../components/games/multiplayer/Battleship';
 import WordChain from '../components/games/multiplayer/WordChain';
+import Checkers from '../components/games/multiplayer/Checkers';
 
 function MultiplayerRoutes() {
   return (
@@ -14,6 +15,7 @@ function MultiplayerRoutes() {
       <Route path="rockpaperscissors" element={<RockPaperScissors />} />
       <Route path="battleship" element={<Battleship />} />
       <Route path="wordchain" element={<WordChain />} />
+      <Route path="checkers" element={<Checkers />} />
     </Routes>
   );
 }

@@ -65,11 +65,35 @@ function ConnectFour() {
     return false;
   }, []);
 
+  // Helper function to validate the board structure
+  const isValidBoard = useCallback((board) => {
+    if (!Array.isArray(board) || board.length !== ROWS) return false;
+    return board.every(row => Array.isArray(row) && row.length === COLS);
+  }, []);
+
+  // Helper to convert board for Firebase (null -> empty string)
+  const boardToFirebase = useCallback((board) => board.map(row => row.map(cell => cell === null ? '' : cell)), []);
+  
+  // Helper to convert board from Firebase (empty string -> null, handle object format)
+  const boardFromFirebase = useCallback((board) => {
+    if (!board) return createEmptyBoard();
+    // Handle if Firebase returns an object instead of array
+    const boardArray = Array.isArray(board) ? board : Object.values(board);
+    return boardArray.map(row => {
+      const rowArray = Array.isArray(row) ? row : Object.values(row);
+      return rowArray.map(cell => cell === '' ? null : cell);
+    });
+  }, []);
+
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
       const unsubscribe = subscribeToRoom('connectfour', roomId, (roomData) => {
         if (roomData.gameState) {
-          setBoard(roomData.gameState.board || createEmptyBoard());
+          // Ensure board is a valid 2D array and convert from Firebase format
+          const boardData = roomData.gameState.board;
+          const convertedBoard = boardFromFirebase(boardData);
+          const validBoard = isValidBoard(convertedBoard) ? convertedBoard : createEmptyBoard();
+          setBoard(validBoard);
           setCurrentPlayer(roomData.currentTurn === 'host' ? 'red' : 'yellow');
           if (roomData.gameState.winner) {
             setWinner(roomData.gameState.winner);
@@ -86,7 +110,7 @@ function ConnectFour() {
         if (unsubscribe) unsubscribe();
       };
     }
-  }, [gameMode, roomId, subscribeToRoom, isWaiting]);
+  }, [gameMode, roomId, subscribeToRoom, isWaiting, boardFromFirebase, isValidBoard]);
 
   useEffect(() => {
     if (winner) {
@@ -123,12 +147,12 @@ function ConnectFour() {
         if (hasWinner) {
           setWinner(currentPlayer);
           if (gameMode === 'online' && roomId) {
-            await updateGameState('connectfour', roomId, { board: newBoard, winner: currentPlayer }, playerRole === 'host' ? 'guest' : 'host');
+            await updateGameState('connectfour', roomId, { board: boardToFirebase(newBoard), winner: currentPlayer }, playerRole === 'host' ? 'guest' : 'host');
           }
         } else {
           setCurrentPlayer(currentPlayer === 'red' ? 'yellow' : 'red');
           if (gameMode === 'online' && roomId) {
-            await updateGameState('connectfour', roomId, { board: newBoard }, playerRole === 'host' ? 'guest' : 'host');
+            await updateGameState('connectfour', roomId, { board: boardToFirebase(newBoard) }, playerRole === 'host' ? 'guest' : 'host');
           }
         }
         return;
@@ -143,7 +167,7 @@ function ConnectFour() {
     setWinner(null);
     
     if (gameMode === 'online' && roomId) {
-      await updateGameState('connectfour', roomId, { board: newBoard, winner: null }, 'host');
+      await updateGameState('connectfour', roomId, { board: boardToFirebase(newBoard), winner: null }, 'host');
     }
   };
 

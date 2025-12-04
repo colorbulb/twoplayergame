@@ -162,7 +162,7 @@ function TicTacToe() {
   const renderCell = (index) => (
     <button
       key={index}
-      className={`tictactoe-cell ${board[index]?.toLowerCase()} ${calculateWinner(board) ? 'disabled' : ''}`}
+      className={`tictactoe-cell ${board[index] ? board[index].toLowerCase() : ''} ${calculateWinner(board) ? 'disabled' : ''}`}
       onClick={() => handleClick(index)}
     >
       {board[index]}

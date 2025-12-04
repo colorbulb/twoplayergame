@@ -13,8 +13,8 @@ const firebaseConfig = {
   projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "intjchat",
   storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "intjchat.firebasestorage.app",
   messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "993280462756",
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:993280462756:web:1348268d9e3cd5b843fb31",
-  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-T90XD8M1G9"
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:993280462756:web:7c69766b0584cf2543fb31",
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-FGKVE15KLH"
 };
 
 // Initialize Firebase

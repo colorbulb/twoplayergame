@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "intjchat"
+  },
+  "targets": {
+    "intjchat": {
+      "hosting": {
+        "mbtisocialgame": [
+          "mbtisocialgame"
+        ]
+      }
+    }
+  }
+}

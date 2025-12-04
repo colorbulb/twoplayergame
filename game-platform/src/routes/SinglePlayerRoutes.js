@@ -5,6 +5,7 @@ import Snake from '../components/games/singleplayer/Snake';
 import Game2048 from '../components/games/singleplayer/Game2048';
 import Minesweeper from '../components/games/singleplayer/Minesweeper';
 import TypingSpeedTest from '../components/games/singleplayer/TypingSpeedTest';
+import Sudoku from '../components/games/singleplayer/Sudoku';
 
 function SinglePlayerRoutes() {
   return (
@@ -14,6 +15,7 @@ function SinglePlayerRoutes() {
       <Route path="2048" element={<Game2048 />} />
       <Route path="minesweeper" element={<Minesweeper />} />
       <Route path="typingtest" element={<TypingSpeedTest />} />
+      <Route path="sudoku" element={<Sudoku />} />
     </Routes>
   );
 }

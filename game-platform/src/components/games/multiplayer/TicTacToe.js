@@ -44,7 +44,12 @@ function TicTacToe() {
     if (gameMode === 'online' && roomId) {
       const unsubscribe = subscribeToRoom('tictactoe', roomId, (roomData) => {
         if (roomData.gameState) {
-          setBoard(roomData.gameState.board || Array(9).fill(null));
+          // Ensure board is a valid array
+          const boardData = roomData.gameState.board;
+          const validBoard = Array.isArray(boardData) && boardData.length === 9 
+            ? boardData 
+            : Array(9).fill(null);
+          setBoard(validBoard);
           setIsXNext(roomData.currentTurn === 'host');
         }
         

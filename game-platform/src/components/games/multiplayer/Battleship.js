@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../../../contexts/GameContext';
 import RoomModal from '../../common/RoomModal';
@@ -15,7 +15,7 @@ const SHIPS = [
 
 function Battleship() {
   const navigate = useNavigate();
-  const { leaveRoom } = useGame();
+  const { leaveRoom, subscribeToRoom } = useGame();
   
   const [gameMode, setGameMode] = useState(null);
   const [roomId, setRoomId] = useState('');
@@ -37,6 +37,22 @@ function Battleship() {
   }
 
   const totalShipCells = SHIPS.reduce((sum, ship) => sum + ship.size, 0);
+
+  // Subscribe to room updates for online play
+  useEffect(() => {
+    if (gameMode === 'online' && roomId) {
+      const unsubscribe = subscribeToRoom('battleship', roomId, (roomData) => {
+        if (roomData.guest && isWaiting) {
+          setIsWaiting(false);
+          setGameStatus(`${roomData.guest.name} joined! Place your ships!`);
+        }
+      });
+      
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, [gameMode, roomId, subscribeToRoom, isWaiting]);
 
   const canPlaceShip = useCallback((board, row, col, size, horizontal) => {
     for (let i = 0; i < size; i++) {

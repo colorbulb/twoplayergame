@@ -193,15 +193,19 @@ function Game2048() {
   // Touch/swipe event handlers
   const handleTouchStart = useCallback((e) => {
     if (!gameStarted || gameOver) return;
-    e.preventDefault();
     const touch = e.touches[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }, [gameStarted, gameOver]);
 
+  const handleTouchMove = useCallback((e) => {
+    if (!gameStarted || gameOver) return;
+    // Prevent scrolling while swiping on the game board
+    e.preventDefault();
+  }, [gameStarted, gameOver]);
+
   const handleTouchEnd = useCallback((e) => {
     if (!gameStarted || gameOver) return;
-    e.preventDefault();
     const touch = e.changedTouches[0];
     if (!touch) return;
     const deltaX = touch.clientX - touchStartRef.current.x;
@@ -228,6 +232,18 @@ function Game2048() {
       }
     }
   }, [move, gameStarted, gameOver]);
+
+  // Prevent body scrolling when game is active
+  useEffect(() => {
+    if (gameStarted && !gameOver) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [gameStarted, gameOver]);
 
   const getTileClass = (value) => {
     if (value === 0) return 'empty';
@@ -274,7 +290,9 @@ function Game2048() {
           <div 
             className="game-2048-board"
             onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            style={{ touchAction: 'none' }}
           >
             {grid.map((row, rowIndex) =>
               row.map((cell, colIndex) => (

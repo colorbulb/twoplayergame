@@ -65,11 +65,20 @@ function ConnectFour() {
     return false;
   }, []);
 
+  // Helper function to validate the board structure
+  const isValidBoard = (board) => {
+    if (!Array.isArray(board) || board.length !== ROWS) return false;
+    return board.every(row => Array.isArray(row) && row.length === COLS);
+  };
+
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
       const unsubscribe = subscribeToRoom('connectfour', roomId, (roomData) => {
         if (roomData.gameState) {
-          setBoard(roomData.gameState.board || createEmptyBoard());
+          // Ensure board is a valid 2D array
+          const boardData = roomData.gameState.board;
+          const validBoard = isValidBoard(boardData) ? boardData : createEmptyBoard();
+          setBoard(validBoard);
           setCurrentPlayer(roomData.currentTurn === 'host' ? 'red' : 'yellow');
           if (roomData.gameState.winner) {
             setWinner(roomData.gameState.winner);

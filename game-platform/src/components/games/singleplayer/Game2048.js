@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GRID_SIZE = 4;
+const SWIPE_THRESHOLD = 30;
 
 function Game2048() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ function Game2048() {
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
   function createEmptyGrid() {
     return Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(0));
@@ -188,6 +190,45 @@ function Game2048() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [move, gameStarted, gameOver]);
 
+  // Touch/swipe event handlers
+  const handleTouchStart = useCallback((e) => {
+    if (!gameStarted || gameOver) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, [gameStarted, gameOver]);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (!gameStarted || gameOver) return;
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+    
+    if (Math.max(absDeltaX, absDeltaY) < SWIPE_THRESHOLD) return;
+    
+    if (absDeltaX > absDeltaY) {
+      // Horizontal swipe
+      if (deltaX > 0) {
+        move('right');
+      } else {
+        move('left');
+      }
+    } else {
+      // Vertical swipe
+      if (deltaY > 0) {
+        move('down');
+      } else {
+        move('up');
+      }
+    }
+  }, [move, gameStarted, gameOver]);
+
   const getTileClass = (value) => {
     if (value === 0) return 'empty';
     return `tile-${Math.min(value, 2048)}`;
@@ -207,7 +248,7 @@ function Game2048() {
           <div className="game-instructions">
             <h3>How to Play</h3>
             <ul>
-              <li>Use Arrow Keys to slide tiles</li>
+              <li>Swipe or use Arrow Keys to slide tiles</li>
               <li>Tiles with the same number merge when they touch</li>
               <li>Add them up to reach 2048!</li>
               <li>Game ends when no more moves are possible</li>
@@ -230,7 +271,11 @@ function Game2048() {
             Score: {score} | Best: {bestScore}
           </div>
 
-          <div className="game-2048-board">
+          <div 
+            className="game-2048-board"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             {grid.map((row, rowIndex) =>
               row.map((cell, colIndex) => (
                 <div
@@ -261,40 +306,6 @@ function Game2048() {
           <div style={{ marginTop: '20px' }}>
             <button className="game-button" onClick={initializeGame}>
               🔄 New Game
-            </button>
-          </div>
-
-          {/* Mobile Controls */}
-          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <button 
-              className="game-button secondary" 
-              style={{ padding: '15px 30px' }}
-              onClick={() => move('up')}
-            >
-              ⬆️
-            </button>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                className="game-button secondary" 
-                style={{ padding: '15px 30px' }}
-                onClick={() => move('left')}
-              >
-                ⬅️
-              </button>
-              <button 
-                className="game-button secondary" 
-                style={{ padding: '15px 30px' }}
-                onClick={() => move('right')}
-              >
-                ➡️
-              </button>
-            </div>
-            <button 
-              className="game-button secondary" 
-              style={{ padding: '15px 30px' }}
-              onClick={() => move('down')}
-            >
-              ⬇️
             </button>
           </div>
         </>

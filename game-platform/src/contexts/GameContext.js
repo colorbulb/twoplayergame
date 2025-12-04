@@ -15,11 +15,21 @@ export function GameProvider({ children }) {
   const [gameState, setGameState] = useState(null);
   const [error, setError] = useState(null);
 
-  // Generate a unique player ID
+  // Generate a unique player ID using crypto API when available
   const getPlayerId = useCallback(() => {
     let playerId = localStorage.getItem('playerId');
     if (!playerId) {
-      playerId = 'player_' + Math.random().toString(36).substring(2, 9);
+      // Use crypto.randomUUID if available, fallback to combination of crypto.getRandomValues
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        playerId = 'player_' + crypto.randomUUID().substring(0, 8);
+      } else if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const array = new Uint32Array(2);
+        crypto.getRandomValues(array);
+        playerId = 'player_' + array[0].toString(36) + array[1].toString(36);
+      } else {
+        // Fallback for older browsers
+        playerId = 'player_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+      }
       localStorage.setItem('playerId', playerId);
     }
     return playerId;

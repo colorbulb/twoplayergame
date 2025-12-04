@@ -33,8 +33,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      // Check if user email ends with @admin.com for simple admin check
-      // In production, use custom claims or a database check
+      // IMPORTANT: This is a simple admin check for demonstration purposes only.
+      // For production use, implement one of these secure alternatives:
+      // 1. Firebase Custom Claims: Set admin claim server-side using Firebase Admin SDK
+      // 2. Database Role Check: Store roles in Firestore/Realtime Database with security rules
+      // 3. Firebase Security Rules: Validate admin access at the database level
+      // The email domain check below is NOT secure for production!
       setIsAdmin(user?.email?.endsWith('@admin.com') || false);
       setLoading(false);
     });

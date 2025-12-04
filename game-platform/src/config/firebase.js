@@ -4,15 +4,17 @@ import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
 // Firebase configuration
+// For production, set these values as environment variables
+// REACT_APP_FIREBASE_API_KEY, REACT_APP_FIREBASE_AUTH_DOMAIN, etc.
 const firebaseConfig = {
-  apiKey: "AIzaSyCeNWoXGlC_cjXXATuauAmjBom-sVYjMEQ",
-  authDomain: "intjchat.firebaseapp.com",
-  databaseURL: "https://intjchat-default-rtdb.firebaseio.com",
-  projectId: "intjchat",
-  storageBucket: "intjchat.firebasestorage.app",
-  messagingSenderId: "993280462756",
-  appId: "1:993280462756:web:1348268d9e3cd5b843fb31",
-  measurementId: "G-T90XD8M1G9"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCeNWoXGlC_cjXXATuauAmjBom-sVYjMEQ",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "intjchat.firebaseapp.com",
+  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL || "https://intjchat-default-rtdb.firebaseio.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "intjchat",
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "intjchat.firebasestorage.app",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "993280462756",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:993280462756:web:1348268d9e3cd5b843fb31",
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-T90XD8M1G9"
 };
 
 // Initialize Firebase

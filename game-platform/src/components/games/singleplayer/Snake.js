@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 
 const BOARD_SIZE = 20;
 const INITIAL_SPEED = 150;
+const MIN_SPEED = 50;
+const SPEED_DECREASE = 10;
+const SCORE_THRESHOLD = 50;
 
 function Snake() {
   const navigate = useNavigate();
@@ -135,7 +138,7 @@ function Snake() {
       setSnake(newSnake);
     };
 
-    const speed = Math.max(50, INITIAL_SPEED - Math.floor(score / 50) * 10);
+    const speed = Math.max(MIN_SPEED, INITIAL_SPEED - Math.floor(score / SCORE_THRESHOLD) * SPEED_DECREASE);
     const gameInterval = setInterval(moveSnake, speed);
     return () => clearInterval(gameInterval);
   }, [snake, direction, food, gameStarted, gameOver, isPaused, score, highScore, generateFood]);

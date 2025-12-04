@@ -1,8 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGame } from '../../../contexts/GameContext';
+import RoomModal from '../../common/RoomModal';
+import '../../common/RoomModal.css';
 
 function TicTacToe() {
   const navigate = useNavigate();
+  const { 
+    currentRoom, 
+    playerRole, 
+    subscribeToRoom, 
+    updateGameState, 
+    endGame, 
+    leaveRoom 
+  } = useGame();
+  
   const [board, setBoard] = useState(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
   const [gameMode, setGameMode] = useState(null); // 'local' or 'online'
@@ -10,6 +22,7 @@ function TicTacToe() {
   const [playerSymbol, setPlayerSymbol] = useState(null);
   const [gameStatus, setGameStatus] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
+  const [showRoomModal, setShowRoomModal] = useState(false);
 
   const calculateWinner = useCallback((squares) => {
     const lines = [
@@ -26,62 +39,119 @@ function TicTacToe() {
     return null;
   }, []);
 
+  // Subscribe to room updates for online play
+  useEffect(() => {
+    if (gameMode === 'online' && roomId) {
+      const unsubscribe = subscribeToRoom('tictactoe', roomId, (roomData) => {
+        if (roomData.gameState) {
+          setBoard(roomData.gameState.board || Array(9).fill(null));
+          setIsXNext(roomData.currentTurn === 'host');
+        }
+        
+        if (roomData.guest && isWaiting) {
+          setIsWaiting(false);
+          setGameStatus(`${roomData.guest.name} joined! Game on!`);
+        }
+        
+        if (roomData.status === 'finished') {
+          const winner = roomData.winner;
+          if (winner === 'draw') {
+            setGameStatus("It's a Draw! 🤝");
+          } else {
+            setGameStatus(`${winner} wins! 🎉`);
+          }
+        }
+      });
+      
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, [gameMode, roomId, subscribeToRoom, isWaiting]);
+
   useEffect(() => {
     const winner = calculateWinner(board);
     if (winner) {
       setGameStatus(`Winner: ${winner}! 🎉`);
+      if (gameMode === 'online' && roomId) {
+        endGame('tictactoe', roomId, winner);
+      }
     } else if (board.every(cell => cell !== null)) {
       setGameStatus("It's a Draw! 🤝");
-    } else {
+      if (gameMode === 'online' && roomId) {
+        endGame('tictactoe', roomId, 'draw');
+      }
+    } else if (gameMode === 'local') {
       setGameStatus(`Current turn: ${isXNext ? 'X' : 'O'}`);
+    } else if (gameMode === 'online' && currentRoom) {
+      const isMyTurn = (playerRole === 'host' && isXNext) || (playerRole === 'guest' && !isXNext);
+      setGameStatus(isMyTurn ? 'Your turn!' : "Opponent's turn...");
     }
-  }, [board, isXNext, calculateWinner]);
+  }, [board, isXNext, calculateWinner, gameMode, roomId, playerRole, currentRoom, endGame]);
 
-  const handleClick = (index) => {
+  const handleClick = async (index) => {
     if (board[index] || calculateWinner(board)) return;
     
-    if (gameMode === 'online' && playerSymbol !== (isXNext ? 'X' : 'O')) {
-      return; // Not your turn
+    if (gameMode === 'online') {
+      const isMyTurn = (playerRole === 'host' && isXNext) || (playerRole === 'guest' && !isXNext);
+      if (!isMyTurn) return;
     }
 
     const newBoard = [...board];
     newBoard[index] = isXNext ? 'X' : 'O';
     setBoard(newBoard);
     setIsXNext(!isXNext);
+
+    if (gameMode === 'online' && roomId) {
+      const nextTurn = isXNext ? 'guest' : 'host';
+      await updateGameState('tictactoe', roomId, { board: newBoard }, nextTurn);
+    }
   };
 
-  const resetGame = () => {
-    setBoard(Array(9).fill(null));
+  const resetGame = async () => {
+    const newBoard = Array(9).fill(null);
+    setBoard(newBoard);
     setIsXNext(true);
+    
+    if (gameMode === 'online' && roomId) {
+      await updateGameState('tictactoe', roomId, { board: newBoard }, 'host');
+    }
   };
 
   const startLocalGame = () => {
     setGameMode('local');
     setPlayerSymbol('X');
-    resetGame();
+    setBoard(Array(9).fill(null));
+    setIsXNext(true);
   };
 
-  const createRoom = () => {
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const handleOnlineGame = () => {
+    setShowRoomModal(true);
+  };
+
+  const handleGameStart = (newRoomId, role) => {
     setRoomId(newRoomId);
-    setPlayerSymbol('X');
+    setPlayerRole(role);
+    setPlayerSymbol(role === 'host' ? 'X' : 'O');
     setGameMode('online');
-    setIsWaiting(true);
-    // In a real app, this would connect to a WebSocket server
-    // For demo purposes, we'll simulate an opponent joining after 2 seconds
-    setTimeout(() => {
-      setIsWaiting(false);
-      setGameStatus('Opponent joined! Your turn (X)');
-    }, 2000);
-    resetGame();
+    setIsWaiting(role === 'host');
+    setShowRoomModal(false);
+    setBoard(Array(9).fill(null));
+    setIsXNext(true);
   };
 
-  const joinRoom = () => {
-    if (!roomId.trim()) return;
-    setPlayerSymbol('O');
-    setGameMode('online');
-    setGameStatus("You are O. Waiting for X's move...");
-    resetGame();
+  const handleLeaveGame = async () => {
+    if (gameMode === 'online' && roomId) {
+      await leaveRoom('tictactoe', roomId);
+    }
+    setGameMode(null);
+    setRoomId('');
+    setPlayerSymbol(null);
+    setIsWaiting(false);
+  };
+
+  const setPlayerRole = (role) => {
+    // This is handled by the context but we need local state too
   };
 
   const renderCell = (index) => (
@@ -111,25 +181,9 @@ function TicTacToe() {
             🎮 Local 2-Player
           </button>
           
-          <div style={{ margin: '30px 0' }}>
-            <h3>Or Play Online</h3>
-            <button className="game-button" onClick={createRoom}>
-              🏠 Create Room
-            </button>
-            
-            <div style={{ marginTop: '20px' }}>
-              <input
-                type="text"
-                className="room-input"
-                placeholder="Enter Room Code"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              />
-              <button className="game-button secondary" onClick={joinRoom}>
-                🚪 Join Room
-              </button>
-            </div>
-          </div>
+          <button className="game-button" onClick={handleOnlineGame} style={{ marginTop: '15px' }}>
+            🌐 Play Online
+          </button>
         </div>
 
         <div className="game-instructions">
@@ -140,6 +194,14 @@ function TicTacToe() {
             <li>If all 9 squares are filled with no winner, it's a draw</li>
           </ul>
         </div>
+
+        <RoomModal
+          isOpen={showRoomModal}
+          onClose={() => setShowRoomModal(false)}
+          gameType="tictactoe"
+          gameName="Tic Tac Toe"
+          onGameStart={handleGameStart}
+        />
       </div>
     );
   }
@@ -147,7 +209,7 @@ function TicTacToe() {
   return (
     <div className="game-container">
       <div className="game-header">
-        <button className="back-button" onClick={() => setGameMode(null)}>
+        <button className="back-button" onClick={handleLeaveGame}>
           ← Back
         </button>
         <h1 className="game-title">❌⭕ Tic Tac Toe</h1>
@@ -155,12 +217,16 @@ function TicTacToe() {
 
       {gameMode === 'online' && roomId && (
         <div className="game-status">
-          Room Code: <strong>{roomId}</strong>
+          Room Code: <strong>{roomId.substring(0, 8)}</strong>
+          {playerSymbol && <span> | You are: <strong>{playerSymbol}</strong></span>}
         </div>
       )}
 
       {isWaiting ? (
-        <p className="waiting-message">Waiting for opponent to join...</p>
+        <div style={{ textAlign: 'center' }}>
+          <p className="waiting-message">Waiting for opponent to join...</p>
+          <p style={{ color: '#a0aec0' }}>Share your room code with a friend!</p>
+        </div>
       ) : (
         <>
           <div className="game-status">{gameStatus}</div>

@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGame } from '../../../contexts/GameContext';
+import RoomModal from '../../common/RoomModal';
+import '../../common/RoomModal.css';
 
 const choices = [
   { id: 'rock', emoji: '✊', name: 'Rock' },
@@ -9,6 +12,13 @@ const choices = [
 
 function RockPaperScissors() {
   const navigate = useNavigate();
+  const { 
+    playerRole, 
+    subscribeToRoom, 
+    updateGameState, 
+    leaveRoom 
+  } = useGame();
+  
   const [gameMode, setGameMode] = useState(null);
   const [roomId, setRoomId] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
@@ -18,6 +28,55 @@ function RockPaperScissors() {
   const [scores, setScores] = useState({ player1: 0, player2: 0 });
   const [round, setRound] = useState(1);
   const [showResult, setShowResult] = useState(false);
+  const [showRoomModal, setShowRoomModal] = useState(false);
+
+  // Subscribe to room updates for online play
+  useEffect(() => {
+    if (gameMode === 'online' && roomId) {
+      const unsubscribe = subscribeToRoom('rockpaperscissors', roomId, (roomData) => {
+        if (roomData.gameState) {
+          const hostChoice = roomData.gameState.hostChoice;
+          const guestChoice = roomData.gameState.guestChoice;
+          
+          if (playerRole === 'host' && guestChoice) {
+            setOpponentChoice(guestChoice);
+          } else if (playerRole === 'guest' && hostChoice) {
+            setOpponentChoice(hostChoice);
+          }
+          
+          if (roomData.gameState.scores) {
+            setScores(roomData.gameState.scores);
+          }
+          if (roomData.gameState.round) {
+            setRound(roomData.gameState.round);
+          }
+        }
+        
+        if (roomData.guest && isWaiting) {
+          setIsWaiting(false);
+        }
+      });
+      
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, [gameMode, roomId, subscribeToRoom, isWaiting, playerRole]);
+
+  // Handle determining winner when both choices are made
+  useEffect(() => {
+    if (playerChoice && opponentChoice && !showResult) {
+      const winner = determineWinner(playerChoice, opponentChoice);
+      setResult(winner);
+      setShowResult(true);
+      
+      if (winner === 'player1') {
+        setScores(prev => ({ ...prev, player1: prev.player1 + 1 }));
+      } else if (winner === 'player2') {
+        setScores(prev => ({ ...prev, player2: prev.player2 + 1 }));
+      }
+    }
+  }, [playerChoice, opponentChoice, showResult]);
 
   const determineWinner = (p1, p2) => {
     if (p1 === p2) return 'draw';
@@ -31,33 +90,42 @@ function RockPaperScissors() {
     return 'player2';
   };
 
-  const handleChoice = (choice) => {
+  const handleChoice = async (choice) => {
     setPlayerChoice(choice);
     
-    // For local game or demo online, generate opponent's choice
-    const opponentOptions = ['rock', 'paper', 'scissors'];
-    const randomChoice = opponentOptions[Math.floor(Math.random() * 3)];
-    
-    setTimeout(() => {
-      setOpponentChoice(randomChoice);
-      const winner = determineWinner(choice, randomChoice);
-      setResult(winner);
-      setShowResult(true);
+    if (gameMode === 'online' && roomId) {
+      const choiceKey = playerRole === 'host' ? 'hostChoice' : 'guestChoice';
+      await updateGameState('rockpaperscissors', roomId, { 
+        [choiceKey]: choice,
+        scores,
+        round 
+      }, playerRole === 'host' ? 'guest' : 'host');
+    } else {
+      // For local game, generate opponent's choice
+      const opponentOptions = ['rock', 'paper', 'scissors'];
+      const randomChoice = opponentOptions[Math.floor(Math.random() * 3)];
       
-      if (winner === 'player1') {
-        setScores(prev => ({ ...prev, player1: prev.player1 + 1 }));
-      } else if (winner === 'player2') {
-        setScores(prev => ({ ...prev, player2: prev.player2 + 1 }));
-      }
-    }, 1000);
+      setTimeout(() => {
+        setOpponentChoice(randomChoice);
+      }, 1000);
+    }
   };
 
-  const nextRound = () => {
+  const nextRound = async () => {
     setPlayerChoice(null);
     setOpponentChoice(null);
     setResult(null);
     setShowResult(false);
     setRound(prev => prev + 1);
+    
+    if (gameMode === 'online' && roomId) {
+      await updateGameState('rockpaperscissors', roomId, { 
+        hostChoice: null,
+        guestChoice: null,
+        scores,
+        round: round + 1 
+      }, 'host');
+    }
   };
 
   const resetGame = () => {
@@ -74,21 +142,25 @@ function RockPaperScissors() {
     resetGame();
   };
 
-  const createRoom = () => {
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const handleOnlineGame = () => {
+    setShowRoomModal(true);
+  };
+
+  const handleGameStart = (newRoomId, role) => {
     setRoomId(newRoomId);
     setGameMode('online');
-    setIsWaiting(true);
-    setTimeout(() => {
-      setIsWaiting(false);
-    }, 2000);
+    setIsWaiting(role === 'host');
+    setShowRoomModal(false);
     resetGame();
   };
 
-  const joinRoom = () => {
-    if (!roomId.trim()) return;
-    setGameMode('online');
-    resetGame();
+  const handleLeaveGame = async () => {
+    if (gameMode === 'online' && roomId) {
+      await leaveRoom('rockpaperscissors', roomId);
+    }
+    setGameMode(null);
+    setRoomId('');
+    setIsWaiting(false);
   };
 
   const getResultMessage = () => {
@@ -114,25 +186,9 @@ function RockPaperScissors() {
             🎮 Play vs Computer
           </button>
           
-          <div style={{ margin: '30px 0' }}>
-            <h3>Or Play Online</h3>
-            <button className="game-button" onClick={createRoom}>
-              🏠 Create Room
-            </button>
-            
-            <div style={{ marginTop: '20px' }}>
-              <input
-                type="text"
-                className="room-input"
-                placeholder="Enter Room Code"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              />
-              <button className="game-button secondary" onClick={joinRoom}>
-                🚪 Join Room
-              </button>
-            </div>
-          </div>
+          <button className="game-button" onClick={handleOnlineGame} style={{ marginTop: '15px' }}>
+            🌐 Play Online
+          </button>
         </div>
 
         <div className="game-instructions">
@@ -144,6 +200,14 @@ function RockPaperScissors() {
             <li>Best of multiple rounds wins!</li>
           </ul>
         </div>
+
+        <RoomModal
+          isOpen={showRoomModal}
+          onClose={() => setShowRoomModal(false)}
+          gameType="rockpaperscissors"
+          gameName="Rock Paper Scissors"
+          onGameStart={handleGameStart}
+        />
       </div>
     );
   }
@@ -151,7 +215,7 @@ function RockPaperScissors() {
   return (
     <div className="game-container">
       <div className="game-header">
-        <button className="back-button" onClick={() => setGameMode(null)}>
+        <button className="back-button" onClick={handleLeaveGame}>
           ← Back
         </button>
         <h1 className="game-title">✊✋✌️ Rock Paper Scissors</h1>
@@ -159,12 +223,15 @@ function RockPaperScissors() {
 
       {gameMode === 'online' && roomId && (
         <div className="game-status">
-          Room Code: <strong>{roomId}</strong>
+          Room Code: <strong>{roomId.substring(0, 8)}</strong>
         </div>
       )}
 
       {isWaiting ? (
-        <p className="waiting-message">Waiting for opponent to join...</p>
+        <div style={{ textAlign: 'center' }}>
+          <p className="waiting-message">Waiting for opponent to join...</p>
+          <p style={{ color: '#a0aec0' }}>Share your room code with a friend!</p>
+        </div>
       ) : (
         <div className="rps-container">
           <div className="game-status">

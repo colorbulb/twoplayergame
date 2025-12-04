@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGame } from '../../../contexts/GameContext';
+import RoomModal from '../../common/RoomModal';
+import '../../common/RoomModal.css';
 
 // Note: In a real app, you would use a dictionary API for word validation
 // This is a simplified implementation that accepts any word with 2+ letters
 
 function WordChain() {
   const navigate = useNavigate();
+  const { leaveRoom } = useGame();
+  
   const [gameMode, setGameMode] = useState(null);
   const [roomId, setRoomId] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
@@ -18,6 +23,7 @@ function WordChain() {
   const [timeLeft, setTimeLeft] = useState(30);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  const [showRoomModal, setShowRoomModal] = useState(false);
 
   const startTimer = useCallback(() => {
     setTimeLeft(30);
@@ -121,23 +127,29 @@ function WordChain() {
     startTimer();
   };
 
-  const createRoom = () => {
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setRoomId(newRoomId);
-    setGameMode('online');
-    setIsWaiting(true);
-    setTimeout(() => {
-      setIsWaiting(false);
-      resetGame();
-      startTimer();
-    }, 2000);
+  const handleOnlineGame = () => {
+    setShowRoomModal(true);
   };
 
-  const joinRoom = () => {
-    if (!roomId.trim()) return;
+  const handleGameStart = (newRoomId, role) => {
+    setRoomId(newRoomId);
     setGameMode('online');
+    setIsWaiting(role === 'host');
+    setShowRoomModal(false);
     resetGame();
-    startTimer();
+    if (role !== 'host') {
+      startTimer();
+    }
+  };
+
+  const handleLeaveGame = async () => {
+    if (gameMode === 'online' && roomId) {
+      await leaveRoom('wordchain', roomId);
+    }
+    setGameMode(null);
+    setRoomId('');
+    setIsWaiting(false);
+    setIsTimerRunning(false);
   };
 
   if (!gameMode) {
@@ -157,25 +169,9 @@ function WordChain() {
             🎮 Local 2-Player
           </button>
           
-          <div style={{ margin: '30px 0' }}>
-            <h3>Or Play Online</h3>
-            <button className="game-button" onClick={createRoom}>
-              🏠 Create Room
-            </button>
-            
-            <div style={{ marginTop: '20px' }}>
-              <input
-                type="text"
-                className="room-input"
-                placeholder="Enter Room Code"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              />
-              <button className="game-button secondary" onClick={joinRoom}>
-                🚪 Join Room
-              </button>
-            </div>
-          </div>
+          <button className="game-button" onClick={handleOnlineGame} style={{ marginTop: '15px' }}>
+            🌐 Play Online
+          </button>
         </div>
 
         <div className="game-instructions">
@@ -188,6 +184,14 @@ function WordChain() {
             <li>Score points based on word length!</li>
           </ul>
         </div>
+
+        <RoomModal
+          isOpen={showRoomModal}
+          onClose={() => setShowRoomModal(false)}
+          gameType="wordchain"
+          gameName="Word Chain"
+          onGameStart={handleGameStart}
+        />
       </div>
     );
   }
@@ -195,7 +199,7 @@ function WordChain() {
   return (
     <div className="game-container">
       <div className="game-header">
-        <button className="back-button" onClick={() => setGameMode(null)}>
+        <button className="back-button" onClick={handleLeaveGame}>
           ← Back
         </button>
         <h1 className="game-title">📝🔗 Word Chain</h1>
@@ -203,12 +207,15 @@ function WordChain() {
 
       {gameMode === 'online' && roomId && (
         <div className="game-status">
-          Room Code: <strong>{roomId}</strong>
+          Room Code: <strong>{roomId.substring(0, 8)}</strong>
         </div>
       )}
 
       {isWaiting ? (
-        <p className="waiting-message">Waiting for opponent to join...</p>
+        <div style={{ textAlign: 'center' }}>
+          <p className="waiting-message">Waiting for opponent to join...</p>
+          <p style={{ color: '#a0aec0' }}>Share your room code with a friend!</p>
+        </div>
       ) : (
         <div className="word-chain-container">
           <div className="game-status">

@@ -1,11 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGame } from '../../../contexts/GameContext';
+import RoomModal from '../../common/RoomModal';
+import '../../common/RoomModal.css';
 
 const ROWS = 6;
 const COLS = 7;
 
 function ConnectFour() {
   const navigate = useNavigate();
+  const { 
+    currentRoom, 
+    playerRole, 
+    subscribeToRoom, 
+    updateGameState, 
+    endGame, 
+    leaveRoom 
+  } = useGame();
+  
   const [board, setBoard] = useState(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState('red');
   const [gameMode, setGameMode] = useState(null);
@@ -14,6 +26,7 @@ function ConnectFour() {
   const [gameStatus, setGameStatus] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [showRoomModal, setShowRoomModal] = useState(false);
 
   function createEmptyBoard() {
     return Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
@@ -53,20 +66,50 @@ function ConnectFour() {
   }, []);
 
   useEffect(() => {
+    if (gameMode === 'online' && roomId) {
+      const unsubscribe = subscribeToRoom('connectfour', roomId, (roomData) => {
+        if (roomData.gameState) {
+          setBoard(roomData.gameState.board || createEmptyBoard());
+          setCurrentPlayer(roomData.currentTurn === 'host' ? 'red' : 'yellow');
+          if (roomData.gameState.winner) {
+            setWinner(roomData.gameState.winner);
+          }
+        }
+        
+        if (roomData.guest && isWaiting) {
+          setIsWaiting(false);
+          setGameStatus(`${roomData.guest.name} joined! Game on!`);
+        }
+      });
+      
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, [gameMode, roomId, subscribeToRoom, isWaiting]);
+
+  useEffect(() => {
     if (winner) {
       setGameStatus(`${winner.charAt(0).toUpperCase() + winner.slice(1)} wins! 🎉`);
+      if (gameMode === 'online' && roomId) {
+        endGame('connectfour', roomId, winner);
+      }
     } else if (board[0].every(cell => cell !== null)) {
       setGameStatus("It's a Draw! 🤝");
-    } else {
+    } else if (gameMode === 'local') {
       setGameStatus(`${currentPlayer === 'red' ? '🔴 Red' : '🟡 Yellow'}'s turn`);
+    } else if (gameMode === 'online' && currentRoom) {
+      const isMyTurn = (playerRole === 'host' && currentPlayer === 'red') || (playerRole === 'guest' && currentPlayer === 'yellow');
+      setGameStatus(isMyTurn ? 'Your turn!' : "Opponent's turn...");
     }
-  }, [board, currentPlayer, winner]);
+  }, [board, currentPlayer, winner, gameMode, roomId, playerRole, currentRoom, endGame]);
 
-  const dropDisc = (col) => {
+  const dropDisc = async (col) => {
     if (winner) return;
     
-    if (gameMode === 'online' && playerColor !== currentPlayer) {
-      return; // Not your turn
+    if (gameMode === 'online') {
+      const isMyTurn = (playerRole === 'host' && currentPlayer === 'red') || (playerRole === 'guest' && currentPlayer === 'yellow');
+      if (!isMyTurn) return;
     }
 
     // Find the lowest empty row in the column
@@ -76,47 +119,65 @@ function ConnectFour() {
         newBoard[row][col] = currentPlayer;
         setBoard(newBoard);
         
-        if (checkWinner(newBoard, row, col, currentPlayer)) {
+        const hasWinner = checkWinner(newBoard, row, col, currentPlayer);
+        if (hasWinner) {
           setWinner(currentPlayer);
+          if (gameMode === 'online' && roomId) {
+            await updateGameState('connectfour', roomId, { board: newBoard, winner: currentPlayer }, playerRole === 'host' ? 'guest' : 'host');
+          }
         } else {
           setCurrentPlayer(currentPlayer === 'red' ? 'yellow' : 'red');
+          if (gameMode === 'online' && roomId) {
+            await updateGameState('connectfour', roomId, { board: newBoard }, playerRole === 'host' ? 'guest' : 'host');
+          }
         }
         return;
       }
     }
   };
 
-  const resetGame = () => {
-    setBoard(createEmptyBoard());
+  const resetGame = async () => {
+    const newBoard = createEmptyBoard();
+    setBoard(newBoard);
     setCurrentPlayer('red');
     setWinner(null);
+    
+    if (gameMode === 'online' && roomId) {
+      await updateGameState('connectfour', roomId, { board: newBoard, winner: null }, 'host');
+    }
   };
 
   const startLocalGame = () => {
     setGameMode('local');
     setPlayerColor('red');
-    resetGame();
+    setBoard(createEmptyBoard());
+    setCurrentPlayer('red');
+    setWinner(null);
   };
 
-  const createRoom = () => {
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const handleOnlineGame = () => {
+    setShowRoomModal(true);
+  };
+
+  const handleGameStart = (newRoomId, role) => {
     setRoomId(newRoomId);
-    setPlayerColor('red');
+    setPlayerColor(role === 'host' ? 'red' : 'yellow');
     setGameMode('online');
-    setIsWaiting(true);
-    setTimeout(() => {
-      setIsWaiting(false);
-      setGameStatus('Opponent joined! Your turn (Red)');
-    }, 2000);
-    resetGame();
+    setIsWaiting(role === 'host');
+    setShowRoomModal(false);
+    setBoard(createEmptyBoard());
+    setCurrentPlayer('red');
+    setWinner(null);
   };
 
-  const joinRoom = () => {
-    if (!roomId.trim()) return;
-    setPlayerColor('yellow');
-    setGameMode('online');
-    setGameStatus("You are Yellow. Waiting for Red's move...");
-    resetGame();
+  const handleLeaveGame = async () => {
+    if (gameMode === 'online' && roomId) {
+      await leaveRoom('connectfour', roomId);
+    }
+    setGameMode(null);
+    setRoomId('');
+    setPlayerColor(null);
+    setIsWaiting(false);
   };
 
   if (!gameMode) {
@@ -136,25 +197,9 @@ function ConnectFour() {
             🎮 Local 2-Player
           </button>
           
-          <div style={{ margin: '30px 0' }}>
-            <h3>Or Play Online</h3>
-            <button className="game-button" onClick={createRoom}>
-              🏠 Create Room
-            </button>
-            
-            <div style={{ marginTop: '20px' }}>
-              <input
-                type="text"
-                className="room-input"
-                placeholder="Enter Room Code"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              />
-              <button className="game-button secondary" onClick={joinRoom}>
-                🚪 Join Room
-              </button>
-            </div>
-          </div>
+          <button className="game-button" onClick={handleOnlineGame} style={{ marginTop: '15px' }}>
+            🌐 Play Online
+          </button>
         </div>
 
         <div className="game-instructions">
@@ -165,6 +210,14 @@ function ConnectFour() {
             <li>Connect 4 discs in a row (horizontal, vertical, or diagonal) to win</li>
           </ul>
         </div>
+
+        <RoomModal
+          isOpen={showRoomModal}
+          onClose={() => setShowRoomModal(false)}
+          gameType="connectfour"
+          gameName="Connect Four"
+          onGameStart={handleGameStart}
+        />
       </div>
     );
   }
@@ -172,7 +225,7 @@ function ConnectFour() {
   return (
     <div className="game-container">
       <div className="game-header">
-        <button className="back-button" onClick={() => setGameMode(null)}>
+        <button className="back-button" onClick={handleLeaveGame}>
           ← Back
         </button>
         <h1 className="game-title">🔴🟡 Connect Four</h1>
@@ -180,12 +233,16 @@ function ConnectFour() {
 
       {gameMode === 'online' && roomId && (
         <div className="game-status">
-          Room Code: <strong>{roomId}</strong>
+          Room Code: <strong>{roomId.substring(0, 8)}</strong>
+          {playerColor && <span> | You are: <strong style={{ color: playerColor === 'red' ? '#ef4444' : '#fbbf24' }}>{playerColor.charAt(0).toUpperCase() + playerColor.slice(1)}</strong></span>}
         </div>
       )}
 
       {isWaiting ? (
-        <p className="waiting-message">Waiting for opponent to join...</p>
+        <div style={{ textAlign: 'center' }}>
+          <p className="waiting-message">Waiting for opponent to join...</p>
+          <p style={{ color: '#a0aec0' }}>Share your room code with a friend!</p>
+        </div>
       ) : (
         <>
           <div className="game-status">{gameStatus}</div>

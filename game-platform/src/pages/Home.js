@@ -7,35 +7,35 @@ const multiplayerGames = [
     name: 'Tic Tac Toe',
     icon: '❌⭕',
     description: 'Classic 3x3 grid game for 2 players',
-    path: '/tictactoe'
+    path: '/multiplayer/tictactoe'
   },
   {
     id: 'connectfour',
     name: 'Connect Four',
     icon: '🔴🟡',
     description: 'Drop discs to connect 4 in a row',
-    path: '/connectfour'
+    path: '/multiplayer/connectfour'
   },
   {
     id: 'rockpaperscissors',
     name: 'Rock Paper Scissors',
     icon: '✊✋✌️',
     description: 'Classic hand game for 2 players',
-    path: '/rockpaperscissors'
+    path: '/multiplayer/rockpaperscissors'
   },
   {
     id: 'battleship',
     name: 'Battleship',
     icon: '🚢💥',
     description: 'Naval combat strategy game',
-    path: '/battleship'
+    path: '/multiplayer/battleship'
   },
   {
     id: 'wordchain',
     name: 'Word Chain',
     icon: '📝🔗',
     description: 'Chain words together with friends',
-    path: '/wordchain'
+    path: '/multiplayer/wordchain'
   }
 ];
 
@@ -45,35 +45,35 @@ const singlePlayerGames = [
     name: 'Memory Match',
     icon: '🃏🎴',
     description: 'Find matching pairs of cards',
-    path: '/memorymatch'
+    path: '/singleplayer/memorymatch'
   },
   {
     id: 'snake',
     name: 'Snake',
     icon: '🐍🍎',
     description: 'Classic snake game',
-    path: '/snake'
+    path: '/singleplayer/snake'
   },
   {
     id: '2048',
     name: '2048',
     icon: '🔢🎯',
     description: 'Merge tiles to reach 2048',
-    path: '/2048'
+    path: '/singleplayer/2048'
   },
   {
     id: 'minesweeper',
     name: 'Minesweeper',
     icon: '💣🚩',
     description: 'Clear the minefield',
-    path: '/minesweeper'
+    path: '/singleplayer/minesweeper'
   },
   {
     id: 'typingtest',
     name: 'Typing Speed Test',
     icon: '⌨️⚡',
     description: 'Test your typing speed',
-    path: '/typingtest'
+    path: '/singleplayer/typingtest'
   }
 ];
 
@@ -108,6 +108,12 @@ function Home() {
           ))}
         </div>
       </section>
+
+      <div className="admin-link">
+        <Link to="/admin" className="admin-button-link">
+          🔐 Admin Dashboard
+        </Link>
+      </div>
     </div>
   );
 }

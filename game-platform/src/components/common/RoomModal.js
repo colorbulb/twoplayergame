@@ -165,11 +165,11 @@ function RoomModal({ isOpen, onClose, gameType, gameName, onGameStart }) {
             />
             <input
               type="text"
-              className="modal-input"
-              placeholder="Enter room code"
+              className="modal-input room-code-input"
+              placeholder="Enter 4-letter room code"
               value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              maxLength={20}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+              maxLength={4}
             />
             <button 
               className="modal-button primary" 
@@ -189,11 +189,14 @@ function RoomModal({ isOpen, onClose, gameType, gameName, onGameStart }) {
             <input
               type="text"
               className="modal-input"
-              placeholder="Enter your name first"
+              placeholder="Enter your name to join a room"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               maxLength={20}
             />
+            {!playerName.trim() && (
+              <p className="name-hint-text">⚠️ Please enter your name above to enable joining</p>
+            )}
             
             <div className="rooms-list">
               {isLoading ? (
@@ -205,7 +208,7 @@ function RoomModal({ isOpen, onClose, gameType, gameName, onGameStart }) {
                   <div key={room.roomId} className="room-item">
                     <div className="room-info">
                       <span className="room-host">🎮 {room.host?.name || 'Unknown'}</span>
-                      <span className="room-id">#{room.roomId?.substring(0, 6)}</span>
+                      <span className="room-id">#{room.roomId}</span>
                     </div>
                     <button 
                       className="room-join-button"

@@ -138,6 +138,15 @@
   font-size: 1rem;
 }
 
+.modal-input.room-code-input {
+  text-transform: uppercase;
+  letter-spacing: 8px;
+  text-align: center;
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
 .modal-input:focus {
   outline: none;
   border-color: #00d4ff;
@@ -262,4 +271,11 @@
   text-align: center;
   color: #a0aec0;
   padding: 20px;
+}
+
+.name-hint-text {
+  text-align: center;
+  color: #f59e0b;
+  font-size: 0.85rem;
+  margin: 5px 0;
 }

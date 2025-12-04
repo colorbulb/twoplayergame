@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { database } from '../config/firebase';
-import { ref, set, get, onValue, off, remove, push, update } from 'firebase/database';
+import { ref, set, get, onValue, off, remove, update } from 'firebase/database';
 
 const GameContext = createContext();
 
@@ -8,12 +8,33 @@ export function useGame() {
   return useContext(GameContext);
 }
 
+// Room inactivity timeout: 5 minutes
+const ROOM_INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+
 export function GameProvider({ children }) {
   const [currentRoom, setCurrentRoom] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [playerRole, setPlayerRole] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [error, setError] = useState(null);
+
+  // Generate a 4-letter room code
+  const generateRoomCode = useCallback(() => {
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Exclude I and O to avoid confusion
+    let code = '';
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const array = new Uint8Array(4);
+      crypto.getRandomValues(array);
+      for (let i = 0; i < 4; i++) {
+        code += letters[array[i] % letters.length];
+      }
+    } else {
+      for (let i = 0; i < 4; i++) {
+        code += letters[Math.floor(Math.random() * letters.length)];
+      }
+    }
+    return code;
+  }, []);
 
   // Generate a unique player ID using crypto API when available
   const getPlayerId = useCallback(() => {
@@ -39,8 +60,28 @@ export function GameProvider({ children }) {
   const createRoom = useCallback(async (gameType, playerName) => {
     try {
       const playerId = getPlayerId();
-      const roomRef = push(ref(database, `rooms/${gameType}`));
-      const roomId = roomRef.key;
+      
+      // Generate a unique 4-letter room code
+      let roomId;
+      let roomRef;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      // Try to find a unique room code
+      while (attempts < maxAttempts) {
+        roomId = generateRoomCode();
+        roomRef = ref(database, `rooms/${gameType}/${roomId}`);
+        const snapshot = await get(roomRef);
+        if (!snapshot.exists()) {
+          break;
+        }
+        attempts++;
+      }
+      
+      if (attempts >= maxAttempts) {
+        setError('Failed to generate unique room code. Please try again.');
+        return null;
+      }
       
       const roomData = {
         id: roomId,
@@ -54,6 +95,7 @@ export function GameProvider({ children }) {
         status: 'waiting', // waiting, playing, finished
         gameState: null,
         createdAt: Date.now(),
+        lastActivity: Date.now(),
         currentTurn: 'host'
       };
 
@@ -66,7 +108,7 @@ export function GameProvider({ children }) {
       setError('Failed to create room: ' + err.message);
       return null;
     }
-  }, [getPlayerId]);
+  }, [getPlayerId, generateRoomCode]);
 
   // Join an existing room
   const joinRoom = useCallback(async (gameType, roomId, playerName) => {
@@ -98,7 +140,8 @@ export function GameProvider({ children }) {
           name: playerName || 'Player 2',
           ready: true
         },
-        status: 'playing'
+        status: 'playing',
+        lastActivity: Date.now()
       });
 
       setCurrentRoom({ ...roomData, roomId, guest: { id: playerId, name: playerName || 'Player 2', ready: true } });
@@ -123,9 +166,27 @@ export function GameProvider({ children }) {
       }
 
       const roomsData = snapshot.val();
-      const availableRooms = Object.entries(roomsData)
-        .filter(([_, room]) => room.status === 'waiting' && !room.guest)
-        .map(([id, room]) => ({ ...room, roomId: id }));
+      const now = Date.now();
+      const roomEntries = Object.entries(roomsData);
+      
+      // Clean up inactive rooms and filter available ones
+      const availableRooms = [];
+      for (const [id, room] of roomEntries) {
+        const lastActivity = room.lastActivity || room.createdAt || 0;
+        const isInactive = now - lastActivity > ROOM_INACTIVITY_TIMEOUT_MS;
+        
+        if (isInactive) {
+          // Delete inactive room
+          try {
+            const inactiveRoomRef = ref(database, `rooms/${gameType}/${id}`);
+            await remove(inactiveRoomRef);
+          } catch (cleanupErr) {
+            // Ignore cleanup errors
+          }
+        } else if (room.status === 'waiting' && !room.guest) {
+          availableRooms.push({ ...room, roomId: id });
+        }
+      }
       
       setRooms(availableRooms);
       return availableRooms;
@@ -157,7 +218,8 @@ export function GameProvider({ children }) {
       const roomRef = ref(database, `rooms/${gameType}/${roomId}`);
       await update(roomRef, { 
         gameState: newGameState,
-        currentTurn: nextTurn
+        currentTurn: nextTurn,
+        lastActivity: Date.now()
       });
       setError(null);
     } catch (err) {
